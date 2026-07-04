@@ -1,0 +1,164 @@
+/* ===== Dark mode toggle ===== */
+(function () {
+  var STORAGE_KEY = 'afl-theme';
+
+  function storedTheme() {
+    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+  }
+
+  function isDark() {
+    return document.documentElement.classList.contains('dark-mode');
+  }
+
+  function syncToggle(btn) {
+    if (btn) btn.setAttribute('aria-pressed', isDark() ? 'true' : 'false');
+  }
+
+  function applyTheme(theme) {
+    if (theme === 'dark') document.documentElement.classList.add('dark-mode');
+    else document.documentElement.classList.remove('dark-mode');
+  }
+
+  applyTheme(storedTheme());
+
+  function buildToggle() {
+    var wrapper = document.querySelector('.nav-wrapper');
+    if (!wrapper || wrapper.querySelector('.theme-toggle')) return;
+
+    var btn = document.createElement('button');
+    btn.className = 'theme-toggle';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Toggle dark mode');
+    btn.innerHTML =
+      '<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>' +
+      '<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+
+    var joinBtn = wrapper.querySelector('.button');
+    if (joinBtn) wrapper.insertBefore(btn, joinBtn);
+    else wrapper.appendChild(btn);
+
+    syncToggle(btn);
+
+    btn.addEventListener('click', function () {
+      var dark = document.documentElement.classList.toggle('dark-mode');
+      try { localStorage.setItem(STORAGE_KEY, dark ? 'dark' : 'light'); } catch (e) {}
+      syncToggle(btn);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', buildToggle);
+  } else {
+    buildToggle();
+  }
+})();
+
+const primaryHeader = document.querySelector('.primary-header');
+const navToggle = document.querySelector('.mobile-nav-toggle');
+const primaryNav = document.querySelector('.primary-navigation');
+
+if (navToggle && primaryNav && primaryHeader) {
+  navToggle.addEventListener('click', () => {
+    primaryNav.hasAttribute('data-visible')
+      ? navToggle.setAttribute("aria-expanded", "false")
+      : navToggle.setAttribute("aria-expanded", "true");
+    primaryNav.toggleAttribute('data-visible');
+    primaryHeader.toggleAttribute('data-overlay');
+  });
+}
+
+/* ===== Nav dropdowns / mobile accordion ===== */
+(function () {
+  function closeAll(except) {
+    document.querySelectorAll('.nav-item.is-open').forEach(function (item) {
+      if (item === except) return;
+      item.classList.remove('is-open');
+      var c = item.querySelector('.nav-caret');
+      if (c) c.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.querySelectorAll('.nav-caret').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var item = btn.closest('.nav-item');
+      if (!item) return;
+      var willOpen = !item.classList.contains('is-open');
+      closeAll(item);
+      item.classList.toggle('is-open', willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+  });
+
+  /* click outside closes any open dropdown */
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.nav-item')) return;
+    closeAll(null);
+  });
+
+  /* selecting a nav link closes the mobile menu */
+  if (primaryNav) {
+    primaryNav.querySelectorAll('a[href]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (primaryNav.hasAttribute('data-visible')) {
+          primaryNav.removeAttribute('data-visible');
+          if (primaryHeader) primaryHeader.removeAttribute('data-overlay');
+          if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+  }
+
+  /* Escape closes dropdowns and the mobile menu */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    closeAll(null);
+    if (primaryNav && primaryNav.hasAttribute('data-visible')) {
+      primaryNav.removeAttribute('data-visible');
+      if (primaryHeader) primaryHeader.removeAttribute('data-overlay');
+      if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
+
+/* ===== Header shadow on scroll ===== */
+(function () {
+  if (!primaryHeader) return;
+  var onScroll = function () {
+    primaryHeader.classList.toggle('is-scrolled', window.scrollY > 8);
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+  const qbTableBody = document.querySelector('#qb-table tbody');
+  if (!qbTableBody) return; // Only run the QB fetch on the QB stats page
+
+  const API_KEY = 'AIzaSyAgF9Wt_SggVbdAnX94ClCcB8J5Ob8ath4';
+  const SPREADSHEET_ID = '1T8wkxrS6UTi3u5szJVtgV2FWNLjqKDst-5yCGr0tkqk';
+  const RANGE = 'QB!A1:L51'; // Adjust range as needed
+
+  fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`)
+    .then(response => response.json())
+    .then(data => {
+      const rows = data.values; // This is an array of arrays corresponding to the rows and columns
+      const tableBody = document.querySelector('#qb-table tbody');
+
+      rows.forEach((rowData, index) => {
+        if (index > 0) { // Skip header row
+          const rowElement = document.createElement('tr');
+
+          rowData.forEach(cell => {
+            const cellElement = document.createElement('td');
+            cellElement.textContent = cell;
+            rowElement.appendChild(cellElement);
+          });
+
+          tableBody.appendChild(rowElement);
+        }
+      });
+    })
+    .catch(error => console.error('Error loading the spreadsheet data:', error));
+});
+

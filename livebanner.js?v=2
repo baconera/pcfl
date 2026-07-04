@@ -1,0 +1,30 @@
+/* Home page live banner — shows only when at least one league Twitch stream
+   is live (checked server-side via /api/live). */
+(function () {
+  var banner = document.getElementById('live-banner');
+  if (!banner) return;
+  function check() {
+    fetch('/api/live')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var live = (d && d.ok && d.live) || [];
+        if (live.length) {
+          var sub = document.getElementById('lb-sub');
+          if (sub) {
+            sub.textContent = live.length === 1
+              ? live[0] + ' is streaming right now — tune in.'
+              : live.length + ' streams are live — watch them all at once.';
+          }
+          banner.hidden = false;
+        } else {
+          banner.hidden = true;
+        }
+      })
+      .catch(function () {});
+  }
+  check();
+  setInterval(check, 60 * 1000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) check();
+  });
+})();
